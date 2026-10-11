@@ -135,26 +135,24 @@ public class AeroLabDroneController : MonoBehaviour
 
     void OnGUI()
     {
-        GUI.Label(
-            new Rect(15, 15, 300, 25),
-            $"Throttle: {throttle:P0}"
-        );
+        GUI.Label(new Rect(15, 15, 350, 25),
+            $"Throttle: {throttle:P0}");
 
-        GUI.Label(
-            new Rect(15, 40, 300, 25),
-            $"Speed: {speedMetersPerSecond:F1} m/s"
-        );
+        GUI.Label(new Rect(15, 40, 350, 25),
+            $"Speed: {speedMetersPerSecond:F2} m/s");
 
-        GUI.Label(
-            new Rect(15, 65, 300, 25),
-            $"Altitude: {altitudeMeters:F1} m"
-        );
+        GUI.Label(new Rect(15, 65, 350, 25),
+            $"Altitude: {altitudeMeters:F2} m");
 
-        GUI.Label(
-            new Rect(15, 90, 400, 25),
+        GUI.Label(new Rect(15, 90, 450, 25),
+            $"Position: {transform.position:F2}");
+
+        GUI.Label(new Rect(15, 115, 450, 25),
+            $"Pitch: {pitchInput:F2}  Roll: {rollInput:F2}  Yaw: {yawInput:F2}");
+
+        GUI.Label(new Rect(15, 140, 450, 25),
             Gamepad.current == null
-                ? "No gamepad detected"
-                : "Gamepad connected"
-        );
+                ? "NO GAMEPAD DETECTED"
+                : $"Gamepad: {Gamepad.current.displayName}");
     }
 }
