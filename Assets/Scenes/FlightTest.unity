@@ -509,6 +509,7 @@ GameObject:
   - component: {fileID: 742647557}
   - component: {fileID: 742647553}
   - component: {fileID: 742647558}
+  - component: {fileID: 742647559}
   m_Layer: 0
   m_Name: Drone
   m_TagString: Untagged
@@ -660,6 +661,18 @@ MonoBehaviour:
   stickDeadzone: 0.08
   speedMetersPerSecond: 0
   altitudeMeters: 0
+--- !u!114 &742647559
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 742647552}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c66d6bc2503940e4a95999f3e5042c04, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RadioMasterInputMonitor
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

@@ -5,12 +5,14 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody))]
 public class AeroLabDroneController : MonoBehaviour
 {
+    [Header("Transmitter")]
+    public bool useRadioMaster = true;
+    public float stickDeadzone = 0.08f;
+
     [Header("Throttle")]
     [Range(0f, 1f)]
-    public float throttle = 0.65f;
-
-    public float throttleChangeSpeed = 0.45f;
-    public float maxThrust = 24f;
+    public float throttle = 0.44f;
+    public float maxThrust = 18f;
 
     [Header("Rotation")]
     public float pitchAcceleration = 3f;
@@ -19,64 +21,111 @@ public class AeroLabDroneController : MonoBehaviour
 
     [Header("Stability")]
     public float linearDrag = 0.12f;
-    public float angularDamping = 0.15f;
-    public float stickDeadzone = 0.08f;
+    public float angularDamping = 0.5f;
 
-    [Header("Read-only telemetry")]
-    public float speedMetersPerSecond;
-    public float altitudeMeters;
+    [Header("Live Input - Read Only")]
+    public float throttleStick;
+    public float pitchInput;
+    public float rollInput;
+    public float yawInput;
+    public string controllerStatus = "Waiting for TX16S";
 
     private Rigidbody rb;
-
-    private float pitchInput;
-    private float rollInput;
-    private float yawInput;
-    private float throttleInput;
+    private Joystick radio;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.useGravity = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode =
-            CollisionDetectionMode.ContinuousDynamic;
+        rb.linearDamping = linearDrag;
+        rb.angularDamping = angularDamping;
     }
 
     void Update()
     {
-        ReadGamepad();
-        UpdateTelemetry();
-    }
+        radio = FindRadioMaster();
 
-    void ReadGamepad()
-    {
-        Gamepad pad = Gamepad.current;
-
-        if (pad == null)
+        if (!useRadioMaster || radio == null)
         {
-            pitchInput = 0f;
-            rollInput = 0f;
-            yawInput = 0f;
-            throttleInput = 0f;
+            controllerStatus = "TX16S not detected";
             return;
         }
 
-        Vector2 left = pad.leftStick.ReadValue();
-        Vector2 right = pad.rightStick.ReadValue();
+        controllerStatus = "Connected: " + radio.displayName;
 
-        // Mode 2-style mapping:
-        // Left X = yaw, left Y = incremental throttle.
-        // Right X = roll, right Y = pitch.
-        yawInput = ApplyDeadzone(left.x);
-        throttleInput = ApplyDeadzone(left.y);
-        rollInput = ApplyDeadzone(right.x);
-        pitchInput = ApplyDeadzone(right.y);
+        // Your measured TX16S axis mapping:
+        // Throttle stick up = y -1; down = y +1
+        // Throttle stick left/right = rx -1/+1
+        // Other stick up/down = z +1/-1
+        // Other stick left/right = x -1/+1
 
-        // Optional emergency throttle cut.
-        if (pad.buttonSouth.isPressed)
+        float rawThrottleY = ReadAxis("y", 0f);
+        float rawYaw       = ReadAxis("rx", 0f);
+        float rawPitch     = ReadAxis("z", 0f);
+        float rawRoll      = ReadAxis("x", 0f);
+
+        // Convert throttle stick position to 0..1.
+        // Stick down = 0 throttle; stick up = 1 throttle.
+        throttleStick = Mathf.Clamp01((1f - rawThrottleY) * 0.5f);
+
+        yawInput = ApplyDeadzone(rawYaw);
+        pitchInput = ApplyDeadzone(rawPitch);
+        rollInput = ApplyDeadzone(rawRoll);
+
+        // Use the transmitter's throttle position directly.
+        throttle = throttleStick;
+    }
+    float ReadAxis(string axisName, float fallback)
+{
+    if (radio == null)
+        return fallback;
+
+    foreach (var control in radio.allControls)
+    {
+        if (control.name == axisName &&
+            control is UnityEngine.InputSystem.Controls.AxisControl axis)
         {
-            throttle = 0f;
+            return axis.ReadValue();
         }
+    }
+
+    return fallback;
+}
+
+    void FixedUpdate()
+    {
+        if (!useRadioMaster || radio == null)
+            return;
+
+        // Thrust along the drone's local up direction.
+        rb.AddForce(
+            transform.up * throttle * maxThrust,
+            ForceMode.Force
+        );
+
+        // Apply rotational control using the mapped sticks.
+        rb.AddRelativeTorque(
+            pitchInput * pitchAcceleration,
+            yawInput * yawAcceleration,
+            -rollInput * rollAcceleration,
+            ForceMode.Force
+        );
+    }
+
+    Joystick FindRadioMaster()
+    {
+        foreach (Joystick device in Joystick.all)
+        {
+            if (device.displayName.ToLower().Contains("radiomaster"))
+                return device;
+        }
+
+        // Fallback if Windows gives the joystick a different name.
+        if (Joystick.all.Count > 0)
+            return Joystick.all[0];
+
+        return null;
     }
 
     float ApplyDeadzone(float value)
@@ -84,75 +133,19 @@ public class AeroLabDroneController : MonoBehaviour
         return Mathf.Abs(value) < stickDeadzone ? 0f : value;
     }
 
-    void FixedUpdate()
-    {
-        // Integrate throttle so a centered gamepad stick holds
-        // the current throttle instead of snapping to zero.
-        throttle += throttleInput
-                    * throttleChangeSpeed
-                    * Time.fixedDeltaTime;
-
-        throttle = Mathf.Clamp01(throttle);
-
-        // Lift acts along the drone's local up direction.
-        rb.AddForce(
-            transform.up * (throttle * maxThrust),
-            ForceMode.Force
-        );
-
-        // Basic acro-style rotational control.
-        // The values are angular accelerations, not real motor torques.
-        Vector3 angularAcceleration = new Vector3(
-            -pitchInput * pitchAcceleration,
-             yawInput * yawAcceleration,
-            -rollInput * rollAcceleration
-        );
-
-        rb.AddRelativeTorque(
-            angularAcceleration,
-            ForceMode.Acceleration
-        );
-
-        // Simple air resistance and rotational damping.
-        rb.AddForce(
-            -rb.linearVelocity * linearDrag,
-            ForceMode.Acceleration
-        );
-
-        rb.AddTorque(
-            -rb.angularVelocity * angularDamping,
-            ForceMode.Acceleration
-        );
-    }
-
-    void UpdateTelemetry()
-    {
-        if (rb == null) return;
-
-        speedMetersPerSecond = rb.linearVelocity.magnitude;
-        altitudeMeters = transform.position.y;
-    }
-
     void OnGUI()
     {
-        GUI.Label(new Rect(15, 15, 350, 25),
-            $"Throttle: {throttle:P0}");
+        GUILayout.BeginArea(new Rect(10, 10, 340, 190), GUI.skin.box);
 
-        GUI.Label(new Rect(15, 40, 350, 25),
-            $"Speed: {speedMetersPerSecond:F2} m/s");
+        GUILayout.Label("AEROLAB SIM - TX16S");
+        GUILayout.Label(controllerStatus);
+        GUILayout.Label("Throttle: " + throttle.ToString("F2"));
+        GUILayout.Label("Pitch: " + pitchInput.ToString("F2"));
+        GUILayout.Label("Roll: " + rollInput.ToString("F2"));
+        GUILayout.Label("Yaw: " + yawInput.ToString("F2"));
+        GUILayout.Label("Speed: " + rb.linearVelocity.magnitude.ToString("F2") + " m/s");
+        GUILayout.Label("Altitude: " + transform.position.y.ToString("F2") + " m");
 
-        GUI.Label(new Rect(15, 65, 350, 25),
-            $"Altitude: {altitudeMeters:F2} m");
-
-        GUI.Label(new Rect(15, 90, 450, 25),
-            $"Position: {transform.position:F2}");
-
-        GUI.Label(new Rect(15, 115, 450, 25),
-            $"Pitch: {pitchInput:F2}  Roll: {rollInput:F2}  Yaw: {yawInput:F2}");
-
-        GUI.Label(new Rect(15, 140, 450, 25),
-            Gamepad.current == null
-                ? "NO GAMEPAD DETECTED"
-                : $"Gamepad: {Gamepad.current.displayName}");
+        GUILayout.EndArea();
     }
 }
