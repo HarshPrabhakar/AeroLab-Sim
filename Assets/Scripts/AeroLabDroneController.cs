@@ -133,19 +133,5 @@ public class AeroLabDroneController : MonoBehaviour
         return Mathf.Abs(value) < stickDeadzone ? 0f : value;
     }
 
-    void OnGUI()
-    {
-        GUILayout.BeginArea(new Rect(10, 10, 340, 190), GUI.skin.box);
 
-        GUILayout.Label("AEROLAB SIM - TX16S");
-        GUILayout.Label(controllerStatus);
-        GUILayout.Label("Throttle: " + throttle.ToString("F2"));
-        GUILayout.Label("Pitch: " + pitchInput.ToString("F2"));
-        GUILayout.Label("Roll: " + rollInput.ToString("F2"));
-        GUILayout.Label("Yaw: " + yawInput.ToString("F2"));
-        GUILayout.Label("Speed: " + rb.linearVelocity.magnitude.ToString("F2") + " m/s");
-        GUILayout.Label("Altitude: " + transform.position.y.ToString("F2") + " m");
-
-        GUILayout.EndArea();
-    }
 }
