@@ -9,13 +9,12 @@ public class RadioMasterInputMonitor : MonoBehaviour
 
     private void OnGUI()
     {
-        const float panelWidth = 280f;
-        const float panelHeight = 330f;
+        const float panelWidth = 350f;
+        const float panelHeight = 520f;
         const float margin = 10f;
 
         float panelX = Mathf.Max(
-            margin,
-            Screen.width - panelWidth - margin
+            margin, Screen.width - panelWidth - margin
         );
 
         GUILayout.BeginArea(
@@ -23,8 +22,8 @@ public class RadioMasterInputMonitor : MonoBehaviour
             GUI.skin.box
         );
 
-        GUILayout.Label("AEROLAB SIM - FLIGHT INPUTS");
-        GUILayout.Space(6);
+        GUILayout.Label("AEROLAB SIM - RAW TX16S INPUTS");
+        GUILayout.Space(5);
 
         scrollPosition = GUILayout.BeginScrollView(scrollPosition);
 
@@ -38,54 +37,38 @@ public class RadioMasterInputMonitor : MonoBehaviour
             {
                 GUILayout.Label("Device: " + joystick.displayName);
                 GUILayout.Space(5);
+                GUILayout.Label("AXES - move one stick at a time");
 
-                // Show only the main flight axes.
-                ShowAxis(joystick, "x", "Roll / Horizontal");
-                ShowAxis(joystick, "y", "Pitch / Vertical");
-                ShowAxis(joystick, "z", "Throttle / Auxiliary");
-                ShowAxis(joystick, "rz", "Yaw / Auxiliary");
+                foreach (InputControl control in joystick.allControls)
+                {
+                    if (control is AxisControl axis)
+                    {
+                        GUILayout.Label(
+                            control.name + " : " +
+                            axis.ReadValue().ToString("F3")
+                        );
+                    }
+                }
 
-                GUILayout.Space(8);
-                GUILayout.Label("Selected Buttons");
+                GUILayout.Space(10);
+                GUILayout.Label("BUTTONS");
 
-                // Display only buttons currently assigned to flight use.
-                ShowButton(joystick, 0, "Button 1");
-                ShowButton(joystick, 1, "Button 2");
-                ShowButton(joystick, 2, "Button 3");
-                ShowButton(joystick, 3, "Button 4");
+                foreach (InputControl control in joystick.allControls)
+                {
+                    if (control is ButtonControl button)
+                    {
+                        GUILayout.Label(
+                            control.name + " : " +
+                            button.ReadValue().ToString("F2")
+                        );
+                    }
+                }
+
+                GUILayout.Space(12);
             }
         }
 
         GUILayout.EndScrollView();
         GUILayout.EndArea();
-    }
-
-    private void ShowAxis(Joystick joystick, string controlName, string label)
-    {
-        InputControl control = joystick.TryGetChildControl(controlName);
-
-        if (control is AxisControl axis)
-        {
-            GUILayout.Label(label + ": " + axis.ReadValue().ToString("F2"));
-        }
-    }
-
-    private void ShowButton(Joystick joystick, int buttonIndex, string label)
-    {
-        if (buttonIndex < joystick.allControls.Count)
-        {
-            foreach (InputControl control in joystick.allControls)
-            {
-                if (control is ButtonControl &&
-                    control.name == "button" + buttonIndex)
-                {
-                    GUILayout.Label(
-                        label + ": " +
-                        (control.ReadValueAsObject().ToString())
-                    );
-                    return;
-                }
-            }
-        }
     }
 }
